@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "ctg"
 version = "0.1.0"
-description = "Diagnos fetal distress from CTG data."
+description = "Diagnose fetal distress from CTG data."
 authors = ["Luke Schiefelbein <luke.schiefelbein@gmail.com>"]
 license = "MIT"
 
@@ -16,8 +16,16 @@ seaborn = "^0.11.2"
 statsmodels = "^0.13.1"
 plotly = "^5.4.0"
 nbformat = "^5.1.3"
+sklearn = "^0.0"
+imbalanced-learn = "^0.8.1"
+xgboost = "^1.5.1"
+skll = "^2.5.0"
+jax = "^0.2.25"
+optax = "^0.1.0"
 
 [tool.poetry.dev-dependencies]
+black = {version = "^21.12b0", allow-prereleases = true}
+pytest = "^6.2.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
