@@ -1,4 +1,4 @@
-from jax import value_and_grad, jit
+from jax import value_and_grad, jit, vmap
 from jax.nn import softmax
 from jax.nn.initializers import glorot_uniform
 import jax.random
@@ -6,6 +6,12 @@ import optax  # type: ignore
 import jax.numpy as jnp
 import numpy as np
 from typing import List
+
+# TODO: regularization?
+# TODO: print()/verbose seems to wait until the end
+# TODO: compile is slow, and also dependent on data size
+# todo: double check "random" penalization of Cohen kappa
+# todo: batch size params, currently 100%
 
 
 class KappaLossPerceptron:
@@ -31,20 +37,15 @@ class KappaLossPerceptron:
         """
         A confusion matrix that support continuous class probabilities, i.e.
         the output of a softmax layer.
+        It also outputs a continuous valued confusion matrix. Since it's part
+        of our loss function, this gives us a continous loss instead of a
+        discrete one.
         """
         cm = jnp.zeros((self.num_classes, self.num_classes))
         for i in range(len(y_pred)):
-            x = y_true[i]
-            y_p = y_pred[i]
-            cm = cm.at[x, :].add(y_p)
-        return cm
-
-    def confusion_matrix(self, y_true, y_pred):
-        cm = jnp.zeros((self.num_classes, self.num_classes))
-        for i in range(len(y_true)):
-            x = y_true[i]
-            y = y_pred[i]
-            cm = cm.at[x, y].add(1)
+            index_true = y_true[i]
+            predicted_classes = y_pred[i]
+            cm = cm.at[index_true, :].add(predicted_classes)
         return cm
 
     def kappa_continuous(self, y_true, y_pred):
@@ -93,7 +94,8 @@ class KappaLossPerceptron:
     def loss(self, W, X, y):
         return self.weighted_kappa_loss(X, W, y, self.softmax_layer)
 
-    def fit(self, X, y, clean=True, epochs=None):
+    # TODO: I think there is an sklearn convention for "clean"
+    def fit(self, X, y, clean=True, epochs=None, verbose=True):
         if not epochs:
             epochs = self.epochs
         if clean:
@@ -105,6 +107,8 @@ class KappaLossPerceptron:
         grad_func = jit(value_and_grad(self.loss))
         for _ in range(epochs):
             loss_val, grads = grad_func(self.params, X, y)
+            if verbose:
+                print(loss_val)
             self.loss_values.append(loss_val)
             updates, opt_state = optimizer.update(grads, opt_state)
             self.params = optax.apply_updates(self.params, updates)  # type: ignore
@@ -119,6 +123,6 @@ class KappaLossPerceptron:
         else:
             return jnp.argmax(self.softmax_layer(X, self.params), axis=1)
 
-    def discretized_kappa(self, X, y_true):
+    def prediction_kappa(self, X, y_true):
         y_pred = self.predict(X, one_hot=True)
         return self.kappa_continuous(y_true, y_pred)
