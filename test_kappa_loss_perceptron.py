@@ -8,7 +8,7 @@ import pytest
 
 @pytest.fixture
 def KLP(test_weights):
-    return KappaLossPerceptron(num_classes=3, weight_matrix=test_weights, epochs=1)
+    return KappaLossPerceptron(num_classes=3, weight_matrix=test_weights, max_iter=1)
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def test_weights():
 # Predicted   N    S    P     # True 
             [0.0, 1.0, 1.0],  # N
             [1.0, 0.0, 1.0],  # S
-            [1.0, 1.0, 0.0],  # P
+            [1.1, 1.0, 0.0],  # P
         ]
         # fmt: on
     )
@@ -72,9 +72,9 @@ def test_confusion_matrix(KLP, y_true, y_pred, y_pred_one_hot):
     assert_almost_equal(klp_answer, sk_answer)
 
 
-def test_kappa_continuous(KLP, y_true, y_pred, y_pred_one_hot):
+def test_kappa_continuous(KLP, y_true, y_pred, y_pred_one_hot, test_weights):
     answer_KLP = KLP.kappa_continuous(y_true, y_pred_one_hot)
-    answer_skll_kappa = skll_kappa(y_true, y_pred)
+    answer_skll_kappa = skll_kappa(y_true, y_pred, weights=test_weights)
     assert_almost_equal(answer_KLP, answer_skll_kappa)
     y_pred_2 = jnp.array(
         [
@@ -96,7 +96,7 @@ def test_fit_predict(KLP, y_true, X):
     """
     KLP.fit(X, y_true, verbose=False)
     kappa1 = KLP.prediction_kappa(X, y_true)
-    KLP.fit(X, y_true, clean=False, epochs=55, verbose=False)
+    KLP.fit(X, y_true, warm_start=True, max_iter=55, verbose=False)
     kappa2 = KLP.prediction_kappa(X, y_true)
     # score improves
     assert kappa2 > kappa1
