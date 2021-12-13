@@ -59,14 +59,10 @@ While before compilation could take as long as 40 minutes when using full data, 
 
 
 
-  warnings.warn(label_encoder_deprecation_msg, UserWarning)
-/Users/luke/projects/old/ctg/.venv/lib/python3.9/site-packages/xgboost/sklearn.py:1224: UserWarning: The use of label encoder in XGBClassifier is deprecated and will be removed in a future release. To remove this warning, do the following: 1) Pass option use_label_encoder=False when constructing XGBClassifier object; and 2) Encode your labels (y) as integers starting with 0, i.e. 0, 1, 2, ..., [num_class - 1].
-  warnings.warn(label_encoder_deprecation_msg, UserWarning)
-[12:54:00] WARNING: /Users/runner/work/xgboost/xgboost/src/learner.cc:1115: Starting in XGBoost 1.3.0, the default evaluation metric used with the objective 'multi:softprob' was changed from 'merror' to 'mlogloss'. Explicitly set eval_metric if you'd like to restore the old behavior.
+At first the perceptron was being beaten by logistic regression, which was odd because they are pretty similar. Looking closer I found I couldn't even overfit all the data very well on the model, so something seemed off. It turned out that was true: I was missing a bias term.
 
-[12:54:00] WARNING: /Users/runner/work/xgboost/xgboost/src/learner.cc:576: 
-Parameters: { "class_weight", "max_features" } might not be used.
+After adding I could overfit to .84 kappa on the entire dataset, but I should be able to overfit nearly perfectly, so I rejiggered the code to add another layer (and easily add even more). At first I tried relu as the hidden activation, but it didn't work. I switch to tanh, and things got better. Not sure why???
 
-  This could be a false alarm, with some parameters getting used by language bindings but
-  then being mistakenly passed down to XGBoost core, or some parameter actually being used
-  but getting flagged wrongly here. Please open an issue if you find any such cases.
+I could have switched to something more out of the box like haiku, but I wanted to refresh my memory on the inner workings of NNs and also learn Jax nuts and bolts better
+
+Of course once overfitting, now we need to worry about regularization. Start by looking at a learning curve ![](2021-12-13-15-26-19.png)

@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from numpy.testing import assert_almost_equal, verbose
+from numpy.testing import assert_almost_equal  # type: ignore
 from kappa_loss_perceptron import KappaLossPerceptron
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix  # type: ignore
 from skll.metrics import kappa as skll_kappa  # type: ignore
@@ -96,7 +96,7 @@ def test_fit_predict(KLP, y_true, X):
     """
     KLP.fit(X, y_true, verbose=False)
     kappa1 = KLP.prediction_kappa(X, y_true)
-    KLP.fit(X, y_true, warm_start=True, max_iter=55, verbose=False)
+    KLP.fit(X, y_true, warm_start=True, max_iter=75, verbose=True)
     kappa2 = KLP.prediction_kappa(X, y_true)
     # score improves
     assert kappa2 > kappa1

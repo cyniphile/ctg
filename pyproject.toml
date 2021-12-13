@@ -8,8 +8,6 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
 requests = "^2.26.0"
-pandas = "^1.3.4"
-numpy = "^1.21.3"
 xlrd = "^2.0.1"
 ipykernel = "^6.5.1"
 seaborn = "^0.11.2"
@@ -23,6 +21,7 @@ skll = "^2.5.0"
 jax = "^0.2.25"
 optax = "^0.1.0"
 mord = "^0.6"
+yellowbrick = "^1.3.post1"
 
 [tool.poetry.dev-dependencies]
 black = {version = "^21.12b0", allow-prereleases = true}

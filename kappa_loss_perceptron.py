@@ -1,20 +1,35 @@
+from dataclasses import dataclass
 from jax import value_and_grad, jit, vmap
-from jax.nn import softmax
-from jax.nn.initializers import glorot_uniform
 import jax.random
-import optax  # type: ignore
 import jax.numpy as jnp
+from jax.nn import softmax, tanh
+from jax.nn.initializers import he_uniform
 import numpy as np
-from typing import List
+import optax  # type: ignore
+from typing import Callable, List
+from sklearn.base import BaseEstimator  # type: ignore
 
-# TODO: regularization? early stopping
-# TODO: print()/verbose seems to wait until the end
-# TODO: compile is slow, and also dependent on data size
-# todo: double check "random" penalization of Cohen kappa
-# todo: batch size params, currently 100%
+# TODO: regularization?
+# TODO: batch size params, currently 100%
 
 
-class KappaLossPerceptron:
+@dataclass
+class Shape:
+    in_width: int
+    out_width: int
+
+
+@dataclass
+class Layer:
+    activation: Callable
+    shape: Shape
+
+    def dims(self):
+        return (self.shape.in_width, self.shape.out_width)
+
+
+# Need to subclass BaseEstimator for Yellowbrick to work
+class KappaLossPerceptron(BaseEstimator):
 
     _estimator_type = "classifier"
 
@@ -24,7 +39,7 @@ class KappaLossPerceptron:
         weight_matrix,
         learning_rate: float = 0.01,
         max_iter: int = 1000,
-        early_stopping_min_improvement: float = 0.0001,
+        early_stopping_min_improvement: float = 0.000001,
     ) -> None:
         self.num_classes = num_classes
         assert weight_matrix.shape[0] == weight_matrix.shape[1]
@@ -34,7 +49,7 @@ class KappaLossPerceptron:
         self.rand_key = jax.random.PRNGKey(1)
         self.learning_rate = learning_rate
         self.max_iter = max_iter
-        self.params = None
+        self.params: List = []
         self.loss_values: List[float] = []
         # If loss doesn't improve by at least this amount, stop training
         self.early_stopping_min_improvement = early_stopping_min_improvement
@@ -95,9 +110,30 @@ class KappaLossPerceptron:
             )
         return k
 
-    def softmax_layer(self, X, W):
-        v = X @ W
-        return softmax(v, axis=1)
+    def init_layers(self, data_width: int):
+        self.layers = [
+            Layer(tanh, Shape(data_width, 5)),
+            Layer(lambda x: softmax(x, axis=1), Shape(5, self.num_classes)),
+        ]
+
+    def init_params(self, data_width: int):
+        self.init_layers(data_width)
+        params = []
+        he_generator = he_uniform()
+        for layer in self.layers:
+            params.append(
+                dict(
+                    weights=he_generator(self.rand_key, layer.dims()),
+                    biases=jnp.zeros(layer.shape.out_width),
+                )
+            )
+        self.params = params
+
+    def forward_pass(self, X, W):
+        for i, layer in enumerate(self.layers):
+            layer_params = W[i]
+            X = layer.activation(X @ layer_params["weights"] + layer_params["biases"])
+        return X
 
     def weighted_kappa_loss(self, X, W, y, fn):
         y_hat = fn(X, W)
@@ -106,16 +142,20 @@ class KappaLossPerceptron:
         return -1 * self.kappa_continuous(y, y_hat)
 
     def loss(self, W, X, y):
-        return self.weighted_kappa_loss(X, W, y, self.softmax_layer)
+        return self.weighted_kappa_loss(X, W, y, self.forward_pass)
 
     def fit(self, X, y, warm_start=False, max_iter=None, verbose=False):
-        # TODO: add check that y follows sequential classes starting at zero
+        if y.min() != 0 or jnp.unique(jnp.diff(jnp.unique(y))) != jnp.array([1]):
+            raise RuntimeError(
+                "Class labels must be sequential integers starting at zero"
+            )
         if not max_iter:
             max_iter = self.max_iter
         if not warm_start:
             self.loss_values = []
-            param_gen = glorot_uniform()
-            self.params = param_gen(self.rand_key, (X.shape[1], self.num_classes))
+            self.init_params(X.shape[1])
+        elif len(self.params) == 0:
+            raise RuntimeError("Can't do warm start on untrained model.")
         optimizer = optax.adam(self.learning_rate)
         opt_state = optimizer.init(self.params)  # type: ignore
         grad_func = jit(value_and_grad(self.loss))
@@ -140,12 +180,12 @@ class KappaLossPerceptron:
 
     def predict(self, X, one_hot=False):
         if one_hot:
-            pred = self.softmax_layer(X, self.params)
+            pred = self.forward_pass(X, self.params)
             z = jnp.zeros_like(pred)
             z = z.at[jnp.arange(len(pred)), pred.argmax(1)].set(1)
             return z
         else:
-            return jnp.argmax(self.softmax_layer(X, self.params), axis=1)
+            return jnp.argmax(self.forward_pass(X, self.params), axis=1)
 
     def prediction_kappa(self, X, y_true):
         y_pred = self.predict(X, one_hot=True)
