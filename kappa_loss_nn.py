@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 from jax import value_and_grad, jit, vmap
+from jax._src.flatten_util import ravel_pytree
 import jax.random
 import jax.numpy as jnp
 from jax.nn import softmax, tanh
 from jax.nn.initializers import he_uniform
-import numpy as np
+import numpy as np  # type: ignore
 import optax  # type: ignore
 from typing import Callable, List
 from sklearn.base import BaseEstimator  # type: ignore
 
-# TODO: regularization?
-# TODO: batch size params, currently 100%
+# TODO: Add batching functionality, currently batch size == 100%
 
 
 @dataclass
@@ -29,8 +29,9 @@ class Layer:
 
 
 # Need to subclass BaseEstimator for Yellowbrick to work
-class KappaLossPerceptron(BaseEstimator):
+class KappaLossNN(BaseEstimator):
 
+    # Needed to get stratification from Sklearn data splitters
     _estimator_type = "classifier"
 
     def __init__(
@@ -39,28 +40,35 @@ class KappaLossPerceptron(BaseEstimator):
         weight_matrix,
         learning_rate: float = 0.01,
         max_iter: int = 1000,
-        early_stopping_min_improvement: float = 0.000001,
+        alpha: float = 0,
+        early_stopping_min_improvement: float = 0.00001,
+        hidden_layer_shapes=[5],
+        hidden_layer_actvation=tanh,
     ) -> None:
         self.num_classes = num_classes
         assert weight_matrix.shape[0] == weight_matrix.shape[1]
         assert weight_matrix.shape[0] == num_classes
-        self.weight_matrix = weight_matrix
         # TODO: add warning if diagonal isn't all zeros
+        self.weight_matrix = weight_matrix
+        self.alpha = alpha
         self.rand_key = jax.random.PRNGKey(1)
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.params: List = []
         self.loss_values: List[float] = []
-        # If loss doesn't improve by at least this amount, stop training
+        # each item is the number of neurons in a hidden layer
+        self.hidden_layer_shapes: List[int] = hidden_layer_shapes
+        self.hidden_layer_actvation = hidden_layer_actvation
+        # If training loss doesn't improve by at least this amount, stop
+        # TODO: Add true early stopping based on validation set
         self.early_stopping_min_improvement = early_stopping_min_improvement
 
     def confusion_matrix_continuous(self, y_true, y_pred):
         """
         A confusion matrix that support continuous class probabilities, i.e.
         the output of a softmax layer.
-        It also outputs a continuous valued confusion matrix. Since it's part
-        of our loss function, this gives us a continous loss instead of a
-        discrete one.
+        It also outputs a continuous valued confusion matrix, which makes for
+        a smoother loss function.
         """
 
         def f(i, j):
@@ -111,10 +119,38 @@ class KappaLossPerceptron(BaseEstimator):
         return k
 
     def init_layers(self, data_width: int):
-        self.layers = [
-            Layer(tanh, Shape(data_width, 5)),
-            Layer(lambda x: softmax(x, axis=1), Shape(5, self.num_classes)),
-        ]
+        self.layers = []
+        if len(self.hidden_layer_shapes):
+            self.layers.append(
+                Layer(
+                    self.hidden_layer_actvation,
+                    Shape(data_width, self.hidden_layer_shapes[0]),
+                ),
+            )
+            for in_size, out_size in zip(
+                self.hidden_layer_shapes[:-1], self.hidden_layer_shapes[1:]
+            ):
+                if in_size and out_size:
+                    self.layers.append(
+                        Layer(
+                            self.hidden_layer_actvation,
+                            Shape(in_size, out_size),
+                        ),
+                    )
+            self.layers.append(
+                Layer(
+                    lambda x: softmax(x, axis=1),
+                    Shape(self.hidden_layer_shapes[-1], self.num_classes),
+                ),
+            )
+        else:
+            # If no hidden layers, make a softmax perceptron
+            self.layers.append(
+                Layer(
+                    lambda x: softmax(x, axis=1),
+                    Shape(data_width, self.num_classes),
+                ),
+            )
 
     def init_params(self, data_width: int):
         self.init_layers(data_width)
@@ -141,8 +177,16 @@ class KappaLossPerceptron(BaseEstimator):
         # (maximize positive kappa)
         return -1 * self.kappa_continuous(y, y_hat)
 
+    def regularization_penalty(self, W):
+        flattened, _ = ravel_pytree(W)
+        return self.alpha * jnp.sqrt(jnp.sum(jnp.power(flattened, 2)))
+
     def loss(self, W, X, y):
-        return self.weighted_kappa_loss(X, W, y, self.forward_pass)
+        model_loss = self.weighted_kappa_loss(X, W, y, self.forward_pass)
+        if self.alpha > 0:
+            return model_loss + self.regularization_penalty(W)
+        else:
+            return model_loss
 
     def fit(self, X, y, warm_start=False, max_iter=None, verbose=False):
         if y.min() != 0 or jnp.unique(jnp.diff(jnp.unique(y))) != jnp.array([1]):
@@ -173,9 +217,12 @@ class KappaLossPerceptron(BaseEstimator):
                 len(self.loss_values) > 10
                 and improvement < self.early_stopping_min_improvement
             ):
-                print(
-                    "Stopping early after {} iterations.".format(len(self.loss_values))
-                )
+                if verbose:
+                    print(
+                        "Stopping early after {} iterations.".format(
+                            len(self.loss_values)
+                        )
+                    )
                 return
 
     def predict(self, X, one_hot=False):

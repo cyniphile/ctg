@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from numpy.testing import assert_almost_equal  # type: ignore
-from kappa_loss_perceptron import KappaLossPerceptron
+from kappa_loss_nn import KappaLossNN
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix  # type: ignore
 from skll.metrics import kappa as skll_kappa  # type: ignore
 import pytest
@@ -8,7 +8,9 @@ import pytest
 
 @pytest.fixture
 def KLP(test_weights):
-    return KappaLossPerceptron(num_classes=3, weight_matrix=test_weights, max_iter=1)
+    return KappaLossNN(
+        num_classes=3, weight_matrix=test_weights, max_iter=1, alpha=0.001
+    )
 
 
 @pytest.fixture
