@@ -3,7 +3,6 @@
 TODO: 
 - https://www.scikit-yb.org/en/latest/api/features/pca.html
 - https://www.scikit-yb.org/en/latest/api/classifier/index.html
-- revisit jax random numbers
 - double check categorical/1-hot features are working correctly
 - MAYBE try [custom loss for xgboost](https://towardsdatascience.com/custom-loss-functions-for-gradient-boosting-f79c1b40466d) IF THERE's time
 - [ordinal-ify](https://stackoverflow.com/questions/54927571/ordinal-logistic-regression-intercept-returns-1-instead-of-n) NN?

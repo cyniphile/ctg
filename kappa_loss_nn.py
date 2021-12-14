@@ -156,10 +156,11 @@ class KappaLossNN(BaseEstimator):
         self.init_layers(data_width)
         params = []
         he_generator = he_uniform()
-        for layer in self.layers:
+        self.rand_key, subkeys = jax.random.split(self.rand_key, len(self.layers))
+        for layer, key in zip(self.layers, subkeys):
             params.append(
                 dict(
-                    weights=he_generator(self.rand_key, layer.dims()),
+                    weights=he_generator(key, layer.dims()),
                     biases=jnp.zeros(layer.shape.out_width),
                 )
             )
