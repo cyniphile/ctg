@@ -86,8 +86,8 @@ class KappaLossNN(BaseEstimator):
 
     def kappa_continuous(self, y_true, y_pred):
         """
-        A continuous version of Cohen's Kappa, given a y_pred is a vector of
-        probabilities for each class
+        A continuous version of Cohen's Kappa, given each row of `y_pred` is
+        a vector of probabilities for each class
         """
         assert len(y_true) == len(y_pred)
 
@@ -156,7 +156,7 @@ class KappaLossNN(BaseEstimator):
         self.init_layers(data_width)
         params = []
         he_generator = he_uniform()
-        self.rand_key, subkeys = jax.random.split(self.rand_key, len(self.layers))
+        self.rand_key, *subkeys = jax.random.split(self.rand_key, len(self.layers) + 1)
         for layer, key in zip(self.layers, subkeys):
             params.append(
                 dict(
