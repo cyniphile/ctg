@@ -1,12 +1,17 @@
 
 
 TODO: 
-- https://www.scikit-yb.org/en/latest/api/features/pca.html
-- https://www.scikit-yb.org/en/latest/api/classifier/index.html
-- double check categorical/1-hot features are working correctly
-- MAYBE try [custom loss for xgboost](https://towardsdatascience.com/custom-loss-functions-for-gradient-boosting-f79c1b40466d) IF THERE's time
+- revisit, write about [cohen's kappa](https://www.knime.com/blog/cohens-kappa-an-overview)
+  - https://docs.google.com/spreadsheets/d/1xE2BdyWYnaOfqLHndhbnvmSoxUxfbgE9rYaHTva0HuY/edit#gid=0
+- collect train errors for model loop
+- try light
+- optimize for gbm: stages, shrikage, tree depthp
+- MAYBE try [custom loss for xgboost](https://towardsdatascience.com/custom-loss-functions-for-gradient-boosting-f79c1b40466d)
 - [ordinal-ify](https://stackoverflow.com/questions/54927571/ordinal-logistic-regression-intercept-returns-1-instead-of-n) NN?
+- https://towardsdatascience.com/how-to-perform-ordinal-regression-classification-in-pytorch-361a2a095a99
+- https://en.wikipedia.org/wiki/Ordinal_regression
 - possibly choose better ordinal [regression](https://github.com/fabianp/mord/blob/master/mord/threshold_based.py): 
+- switch to https://github.com/scikit-optimize/scikit-optimize
 
 
 first, did all the normal stuff
@@ -15,7 +20,7 @@ first, did all the normal stuff
 	- default for gridsearch, if classifier, had to reimpliment for perceptron AND mord
 	- ![](2021-12-10-10-31-54.png) 
 
-- write about [cohen's kappa](https://www.knime.com/blog/cohens-kappa-an-overview)
+
 - properly collect model outputs from nested kfold loop
 	- [doesn't matter at this stage](https://machinelearningmastery.com/nested-cross-validation-for-machine-learning-with-python/)
 
@@ -98,3 +103,5 @@ I could have switched to something more out of the box like haiku, but I wanted 
 Of course once overfitting, now we need to worry about regularization. Start by looking at a learning curve ![](2021-12-13-15-26-19.png)
 
 How does automatic differentiation work? Seems magical (bad!)
+
+we use kappa as a custom validation metric, but can we also use it as a training metric?

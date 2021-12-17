@@ -439,6 +439,22 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+name = "lightgbm"
+version = "3.3.1"
+description = "LightGBM Python Package"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
+scikit-learn = "!=0.22.0"
+scipy = "*"
+
+[package.extras]
+dask = ["dask[array] (>=2.0.0)", "dask[dataframe] (>=2.0.0)", "dask[distributed] (>=2.0.0)", "pandas"]
+
+[[package]]
 name = "matplotlib"
 version = "3.5.0"
 description = "Python plotting package"
@@ -1152,7 +1168,7 @@ scipy = ">=1.0.0"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "ebabe80385a5b07c9757af4dd30c6bad8d69010d30f94659fa99e15f1a08a15e"
+content-hash = "f32c04950565bb71127f873c811a3743e1e10cb8c34b6fd715ae67f52750ce98"
 
 [metadata.files]
 absl-py = [
@@ -1418,6 +1434,13 @@ kiwisolver = [
     {file = "kiwisolver-1.3.2-pp37-pypy37_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:25405f88a37c5f5bcba01c6e350086d65e7465fd1caaf986333d2a045045a223"},
     {file = "kiwisolver-1.3.2-pp37-pypy37_pp73-win_amd64.whl", hash = "sha256:bcadb05c3d4794eb9eee1dddf1c24215c92fb7b55a80beae7a60530a91060560"},
     {file = "kiwisolver-1.3.2.tar.gz", hash = "sha256:fc4453705b81d03568d5b808ad8f09c77c47534f6ac2e72e733f9ca4714aa75c"},
+]
+lightgbm = [
+    {file = "lightgbm-3.3.1-py3-none-macosx_10_14_x86_64.macosx_10_15_x86_64.macosx_11_0_x86_64.whl", hash = "sha256:8a4c630ce8a963028d163ba09e07682f2f7ec10a6cd2891068e12a858cbb1315"},
+    {file = "lightgbm-3.3.1-py3-none-manylinux1_x86_64.whl", hash = "sha256:6c710b6378025ad9d25869ed77bb2ed9574caf64defe670cbd4117d3c55d7579"},
+    {file = "lightgbm-3.3.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:0b84a9a3cfc39c87f4d2c1a1d090895f7019c6ca05a64a51a917755c70e46f8d"},
+    {file = "lightgbm-3.3.1-py3-none-win_amd64.whl", hash = "sha256:65eb6b3d019b17339c1658a80552b19bc053ecbc829cd3ee877808a29fea5bf5"},
+    {file = "lightgbm-3.3.1.tar.gz", hash = "sha256:5b9f31759ab4e94d9409deb03104c55b0a40058a6ccea804022046d926bc4904"},
 ]
 matplotlib = [
     {file = "matplotlib-3.5.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:4b018ea6f26424a0852eb60eb406420d9f0d34f65736ea7bbfbb104946a66d86"},
