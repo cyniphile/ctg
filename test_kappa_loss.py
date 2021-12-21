@@ -1,11 +1,10 @@
 import jax.numpy as jnp
-import numpy as np
 from sklearn.model_selection import cross_validate  # type: ignore
 from sklearn.metrics import make_scorer  # type: ignore
 from numpy.testing import assert_almost_equal  # type: ignore
 from kappa_loss import (
     KappaLossNN,
-    KappaLGBM,
+    KappaLossLGBM,
     confusion_matrix_continuous,
     kappa_continuous,
 )
@@ -23,12 +22,12 @@ def KNeuralNet(test_weights):
 
 @pytest.fixture
 def KLGBM(test_weights):
-    return KappaLGBM(weight_matrix=list(test_weights), num_classes=3)
+    return KappaLossLGBM(weight_matrix=list(test_weights), num_classes=3)
 
 
 @pytest.fixture
 def test_weights():
-    return np.array(
+    return jnp.array(
         # fmt: off
         [
 # Predicted   N    S    P     # True 
@@ -116,12 +115,13 @@ def test_stacked_kappa(KLGBM, y_true, y_pred_one_hot, test_weights):
     assert_almost_equal(answer_KLP, answer_stacked)
 
 
-def test_lgbm_kappa(KLGBM, y_true, X):
+def test_lgbm_kappa(benchmark, KLGBM, y_true, X):
     # TODO: custom objective is slow!
     # augment data size, otherwise get errors from LGBM
-    new_X = jnp.concatenate([X for _ in range(7)])
-    new_y = jnp.concatenate([y_true for _ in range(7)])
-    KLGBM.fit(new_X, new_y)
+    MULTIPLIER = 7
+    new_X = jnp.concatenate([X for _ in range(MULTIPLIER)])
+    new_y = jnp.concatenate([y_true for _ in range(MULTIPLIER)])
+    benchmark(KLGBM.fit, new_X, new_y)
     preds = KLGBM.predict(X)
     assert skll_kappa(preds, y_true)
 

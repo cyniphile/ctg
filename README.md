@@ -105,3 +105,7 @@ Of course once overfitting, now we need to worry about regularization. Start by 
 How does automatic differentiation work? Seems magical (bad!)
 
 we use kappa as a custom validation metric, but can we also use it as a training metric?
+
+
+spent a lot of time looking at an annoying recompilation bug, which seems super obvious in retrospect. Need need to make sure jax.jit isn't called inside a loop
+seems to be recompiling each time

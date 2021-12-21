@@ -1,5 +1,6 @@
+from jax import make_jaxpr
 from dataclasses import dataclass
-from jax import value_and_grad, grad, jit, vmap, hessian
+from jax import value_and_grad, grad, jit, vmap
 from jax._src.api import grad
 from jax._src.flatten_util import ravel_pytree
 import jax.random
@@ -88,6 +89,8 @@ class KappaLossNN(BaseEstimator):
 
     def __init__(
         self,
+        # TODO: could make calculation of num_classes automatic and still jit
+        # using static_argnums
         num_classes: int,
         weight_matrix,
         learning_rate: float = 0.01,
@@ -237,7 +240,7 @@ class KappaLossNN(BaseEstimator):
         return kappa_continuous(y_true, y_pred, self.num_classes, self.weight_matrix)
 
 
-class KappaLGBM(LGBMClassifier):
+class KappaLossLGBM(LGBMClassifier):
     def __init__(
         self,
         # Wrap in a list as a hack to work with LGBM types
@@ -269,6 +272,7 @@ class KappaLGBM(LGBMClassifier):
         self.num_classes = num_classes
         objective = self.boosting_loss
         self.weight_matrix = weight_matrix
+        self.loss_grad_f = jit(grad(self.stacked_kappa_loss))
         super().__init__(
             boosting_type=boosting_type,
             num_leaves=num_leaves,
@@ -302,20 +306,19 @@ class KappaLGBM(LGBMClassifier):
         and accept a column vector in LightGBM format where
         classes for all examples are stacked.
         """
-        y_pred_shaped = y_pred.reshape(self.num_classes, -1).T
+        y_pred_shaped = jnp.reshape(y_pred, (self.num_classes, -1)).T
         return -1 * kappa_continuous(
             y, y_pred_shaped, self.num_classes, self.get_weight_matrix()
         )
 
     def boosting_loss(self, y, y_pred):
-        grad_func = jit(grad(self.stacked_kappa_loss))
-        grads = np.array(grad_func(y_pred, y))
+        grads = self.loss_grad_f(y_pred, y)
         # Cohen's kappa is TODO: is it? linear in all variables, so hessian is
         # going to always be zero. Apparantly setting hessian to 1 (LGBM only
-        # takes the diagonal) reverse to simple gradient descent
+        # takes the diagonal) reverts to simple gradient descent
         # https://github.com/microsoft/LightGBM/issues/2128
         hess = np.ones(len(grads))
-        return grads, hess
+        return np.array(grads), hess
 
     def predict_proba(
         self,
