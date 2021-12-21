@@ -5,7 +5,7 @@ from jax._src.api import grad
 from jax._src.flatten_util import ravel_pytree
 import jax.random
 import jax.numpy as jnp
-from jax.nn import softmax, tanh
+from jax.nn import softmax, selu
 from jax.nn.initializers import he_uniform
 import numpy as np  # type: ignore
 import optax  # type: ignore
@@ -98,7 +98,7 @@ class KappaLossNN(BaseEstimator):
         alpha: float = 0,
         early_stopping_min_improvement: float = 0.00001,
         hidden_layer_shapes=[5],
-        hidden_layer_actvation=tanh,
+        hidden_layer_actvation=selu,
     ) -> None:
         self.num_classes = num_classes
         assert weight_matrix.shape[0] == weight_matrix.shape[1]
