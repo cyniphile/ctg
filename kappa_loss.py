@@ -11,6 +11,7 @@ import numpy as np  # type: ignore
 import optax  # type: ignore
 from typing import Callable, List, Optional, Union, Dict
 from sklearn.base import BaseEstimator  # type: ignore
+from sklearn.model_selection import train_test_split  # type: ignore
 from lightgbm import LGBMClassifier  # type: ignore
 
 # TODO: Add batching functionality, currently batch size == 100%
@@ -61,6 +62,11 @@ def kappa_continuous(y_true, y_pred, num_classes, weight_matrix):
     assert len(y_true) == len(y_pred)
 
     y_true = y_true.astype(int)
+    # Hack to ensure np arrays work as well
+    if type(y_true) == np.ndarray:
+        y_true = jnp.array(y_true)
+    if type(y_pred) == np.ndarray:
+        y_pred = jnp.array(y_pred)
 
     observed = confusion_matrix_continuous(y_true, y_pred, num_classes)
     num_scored_items = float(len(y_true))
@@ -248,6 +254,7 @@ class KappaLossLGBM(LGBMClassifier):
         # `[LightGBM] [Warning] Unknown parameter: ]`
         weight_matrix,
         num_classes: int,
+        validation_size: float = 0.2,
         boosting_type: str = "gbdt",
         num_leaves: int = 31,
         max_depth: int = -1,
@@ -272,7 +279,10 @@ class KappaLossLGBM(LGBMClassifier):
         self.num_classes = num_classes
         objective = self.boosting_loss
         self.weight_matrix = weight_matrix
-        self.loss_grad_f = jit(grad(self.stacked_kappa_loss))
+        self.loss_grad_f = jit(
+            grad(lambda y_pred, y: self.stacked_kappa_loss(y, y_pred))
+        )
+        self.validation_size = validation_size
         super().__init__(
             boosting_type=boosting_type,
             num_leaves=num_leaves,
@@ -300,7 +310,7 @@ class KappaLossLGBM(LGBMClassifier):
     def get_weight_matrix(self):
         return np.array(self.weight_matrix)
 
-    def stacked_kappa_loss(self, y_pred, y):
+    def stacked_kappa_loss(self, y, y_pred):
         """
         wrapped to switch argument order, make negative,
         and accept a column vector in LightGBM format where
@@ -311,6 +321,9 @@ class KappaLossLGBM(LGBMClassifier):
             y, y_pred_shaped, self.num_classes, self.get_weight_matrix()
         )
 
+    def stacked_kappa_loss_eval(self, y, y_pred):
+        return "stacked_kappa_loss", self.stacked_kappa_loss(y, y_pred), False
+
     def boosting_loss(self, y, y_pred):
         grads = self.loss_grad_f(y_pred, y)
         # Cohen's kappa is TODO: is it? linear in all variables, so hessian is
@@ -319,6 +332,50 @@ class KappaLossLGBM(LGBMClassifier):
         # https://github.com/microsoft/LightGBM/issues/2128
         hess = np.ones(len(grads))
         return np.array(grads), hess
+
+    def fit(
+        self,
+        X,
+        y,
+        sample_weight=None,
+        init_score=None,
+        eval_set=None,
+        eval_names=None,
+        eval_sample_weight=None,
+        eval_class_weight=None,
+        eval_init_score=None,
+        eval_metric=None,
+        early_stopping_rounds=None,
+        verbose="warn",
+        feature_name="auto",
+        categorical_feature="auto",
+        callbacks=None,
+        init_model=None,
+    ):
+        X_train, X_valid, y_train, y_valid = train_test_split(
+            X, y, test_size=self.validation_size
+        )
+        return super().fit(
+            X_train,
+            y_train,
+            # X,
+            # # y,
+            sample_weight=sample_weight,
+            init_score=init_score,
+            eval_names=eval_names,
+            # eval_set=eval_set,
+            eval_set=[(np.array(X_valid), np.array(y_valid))],
+            eval_sample_weight=eval_sample_weight,
+            eval_class_weight=eval_class_weight,
+            eval_init_score=eval_init_score,
+            eval_metric=self.stacked_kappa_loss_eval,
+            early_stopping_rounds=early_stopping_rounds,
+            verbose=verbose,
+            feature_name=feature_name,
+            categorical_feature=categorical_feature,
+            callbacks=callbacks,
+            init_model=init_model,
+        )
 
     def predict_proba(
         self,

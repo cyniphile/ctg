@@ -1,4 +1,5 @@
 import jax.numpy as jnp
+import numpy as np  # type: ignore
 from sklearn.model_selection import cross_validate  # type: ignore
 from sklearn.metrics import make_scorer  # type: ignore
 from numpy.testing import assert_almost_equal  # type: ignore
@@ -22,7 +23,9 @@ def KNeuralNet(test_weights):
 
 @pytest.fixture
 def KLGBM(test_weights):
-    return KappaLossLGBM(weight_matrix=list(test_weights), num_classes=3)
+    return KappaLossLGBM(
+        weight_matrix=list(test_weights), num_classes=3, validation_size=0.1
+    )
 
 
 @pytest.fixture
@@ -111,30 +114,29 @@ def test_stacked_kappa(KLGBM, y_true, y_pred_one_hot, test_weights):
         y_true, y_pred_one_hot, num_classes=3, weight_matrix=test_weights
     )
     y_pred_one_hot_stacked = y_pred_one_hot.T.ravel()
-    answer_stacked = -1 * KLGBM.stacked_kappa_loss(y_pred_one_hot_stacked, y_true)
+    answer_stacked = -1 * KLGBM.stacked_kappa_loss(y_true, y_pred_one_hot_stacked)
     assert_almost_equal(answer_KLP, answer_stacked)
 
 
-def test_lgbm_kappa(benchmark, KLGBM, y_true, X):
-    # TODO: custom objective is slow!
-    # augment data size, otherwise get errors from LGBM
-    MULTIPLIER = 7
-    new_X = jnp.concatenate([X for _ in range(MULTIPLIER)])
-    new_y = jnp.concatenate([y_true for _ in range(MULTIPLIER)])
-    benchmark(KLGBM.fit, new_X, new_y)
-    preds = KLGBM.predict(X)
-    assert skll_kappa(preds, y_true)
-
-
-def test_fit_predict(KNeuralNet, y_true, X):
+def test_fit_predict_nn(KNeuralNet, y_true, X):
     KNeuralNet.fit(X, y_true, verbose=False)
     kappa1 = KNeuralNet.prediction_kappa(X, y_true)
-    KNeuralNet.fit(X, y_true, warm_start=True, max_iter=75, verbose=True)
+    KNeuralNet.fit(X, y_true, warm_start=True, max_iter=25, verbose=True)
     kappa2 = KNeuralNet.prediction_kappa(X, y_true)
     # score improves
     assert kappa2 > kappa1
     # reached perfect score
     assert kappa2 == 1
+
+
+def test_lgbm_kappa(KLGBM, y_true, X):
+    # augment data size, otherwise get errors from LGBM
+    MULTIPLIER = 11
+    new_X = jnp.concatenate([X for _ in range(MULTIPLIER)])
+    new_y = jnp.concatenate([y_true for _ in range(MULTIPLIER)])
+    KLGBM.fit(new_X, new_y)
+    preds = KLGBM.predict(X)
+    assert skll_kappa(preds, y_true) == 1
 
 
 def test_multi_fit(test_weights, y_true, X, KLGBM):
